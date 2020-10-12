@@ -18,11 +18,14 @@ DIR_OF_THIS_SCRIPT = os.path.dirname( os.path.abspath( __file__ ) )
 
 CHUNK_SIZE = 1024 * 1024 # 1MB
 
-LLVM_RELEASE_URL = 'https://releases.llvm.org/{version}'
+LLVM_RELEASE_URL = (
+  'https://github.com/llvm/llvm-project/releases/'
+  'download/llvmorg-{version}' )
 LLVM_PRERELEASE_URL = (
-  'https://prereleases.llvm.org/{version}/rc{release_candidate}' )
+  'https://github.com/llvm/llvm-project/releases/'
+  'download/llvmorg-{version}-rc{release_candidate}' )
 LLVM_SOURCE = 'llvm-{version}.src'
-CLANG_SOURCE = 'cfe-{version}.src'
+CLANG_SOURCE = 'clang-{version}.src'
 CLANG_TOOLS_SOURCE = 'clang-tools-extra-{version}.src'
 BUNDLE_NAME = 'clang+llvm-{version}-{target}'
 TARGET_REGEX = re.compile( '^Target: (?P<target>.*)$' )
@@ -247,7 +250,7 @@ def BundleLlvm( bundle_name, archive_name, install_dir, version ):
 
 def UploadLlvm( args, bundle_path ):
   response = requests.get(
-    GITHUB_RELEASES_URL.format( owner = args.gh_user, repo = 'llvm' ),
+    GITHUB_RELEASES_URL.format( owner = args.gh_repo, repo = 'llvm' ),
     auth = ( args.gh_user, args.gh_token )
   )
   if response.status_code != 200:
@@ -271,7 +274,7 @@ def UploadLlvm( args, bundle_path ):
 
       print( 'Deleting {} on GitHub.'.format( bundle_name ) )
       response = requests.delete(
-        GITHUB_ASSETS_URL.format( owner = args.gh_user,
+        GITHUB_ASSETS_URL.format( owner = args.gh_repo,
                                   repo = 'llvm',
                                   asset_id = asset[ 'id' ] ),
         json = { 'tag_name': bundle_version },
@@ -291,7 +294,7 @@ def UploadLlvm( args, bundle_path ):
     if args.release_candidate:
       name += ' RC' + str( args.release_candidate )
     response = requests.post(
-      GITHUB_RELEASES_URL.format( owner = args.gh_user, repo = 'llvm' ),
+      GITHUB_RELEASES_URL.format( owner = args.gh_repo, repo = 'llvm' ),
       json = {
         'tag_name': bundle_version,
         'name': name,
@@ -335,6 +338,9 @@ def ParseArguments():
   parser.add_argument( '--gh-token', action='store',
                        help = 'GitHub api token. Defaults to environment '
                               'variable: GITHUB_TOKEN.' )
+  parser.add_argument( '--gh-repo', action='store',
+                       help = 'GitHub api token. Defaults to environment '
+                              'variable: GITHUB_TOKEN.' )
 
   args = parser.parse_args()
 
@@ -349,6 +355,12 @@ def ParseArguments():
       sys.exit( 'ERROR: Must specify either --gh-token or '
                 'GITHUB_TOKEN in environment' )
     args.gh_token = os.environ[ 'GITHUB_TOKEN' ]
+
+  if not args.gh_repo:
+    if 'GITHUB_REPO' not in os.environ:
+      sys.exit( 'ERROR: Must specify either --gh-repo or '
+                'GITHUB_REPO in environment' )
+    args.gh_repo = os.environ[ 'GITHUB_REPO' ]
 
   return args
 
