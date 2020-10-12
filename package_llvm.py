@@ -18,11 +18,14 @@ DIR_OF_THIS_SCRIPT = os.path.dirname( os.path.abspath( __file__ ) )
 
 CHUNK_SIZE = 1024 * 1024 # 1MB
 
-LLVM_RELEASE_URL = 'https://releases.llvm.org/{version}'
+LLVM_RELEASE_URL = (
+  'https://github.com/llvm/llvm-project/releases/'
+  'download/llvmorg-{version}' )
 LLVM_PRERELEASE_URL = (
-  'https://prereleases.llvm.org/{version}/rc{release_candidate}' )
+  'https://github.com/llvm/llvm-project/releases/'
+  'download/llvmorg-{version}-rc{release_candidate}' )
 LLVM_SOURCE = 'llvm-{version}.src'
-CLANG_SOURCE = 'cfe-{version}.src'
+CLANG_SOURCE = 'clang-{version}.src'
 CLANG_TOOLS_SOURCE = 'clang-tools-extra-{version}.src'
 BUNDLE_NAME = 'clang+llvm-{version}-{target}'
 TARGET_REGEX = re.compile( '^Target: (?P<target>.*)$' )
@@ -247,7 +250,7 @@ def BundleLlvm( bundle_name, archive_name, install_dir, version ):
 
 def UploadLlvm( args, bundle_path ):
   response = requests.get(
-    GITHUB_RELEASES_URL.format( owner = args.gh_user, repo = 'llvm' ),
+    GITHUB_RELEASES_URL.format( owner = args.gh_org, repo = 'llvm' ),
     auth = ( args.gh_user, args.gh_token )
   )
   if response.status_code != 200:
@@ -271,7 +274,7 @@ def UploadLlvm( args, bundle_path ):
 
       print( 'Deleting {} on GitHub.'.format( bundle_name ) )
       response = requests.delete(
-        GITHUB_ASSETS_URL.format( owner = args.gh_user,
+        GITHUB_ASSETS_URL.format( owner = args.gh_org,
                                   repo = 'llvm',
                                   asset_id = asset[ 'id' ] ),
         json = { 'tag_name': bundle_version },
@@ -291,7 +294,7 @@ def UploadLlvm( args, bundle_path ):
     if args.release_candidate:
       name += ' RC' + str( args.release_candidate )
     response = requests.post(
-      GITHUB_RELEASES_URL.format( owner = args.gh_user, repo = 'llvm' ),
+      GITHUB_RELEASES_URL.format( owner = args.gh_org, repo = 'llvm' ),
       json = {
         'tag_name': bundle_version,
         'name': name,
@@ -335,6 +338,10 @@ def ParseArguments():
   parser.add_argument( '--gh-token', action='store',
                        help = 'GitHub api token. Defaults to environment '
                               'variable: GITHUB_TOKEN.' )
+  parser.add_argument( '--gh-org', action='store',
+                       default = 'ycm-core',
+                       help = 'GitHub organization to which '
+                              'the archive will be uploaded to. ' )
 
   args = parser.parse_args()
 
