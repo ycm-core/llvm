@@ -18,15 +18,8 @@ DIR_OF_THIS_SCRIPT = os.path.dirname( os.path.abspath( __file__ ) )
 
 CHUNK_SIZE = 1024 * 1024 # 1MB
 
-LLVM_RELEASE_URL = (
-  'https://github.com/llvm/llvm-project/releases/'
-  'download/llvmorg-{version}' )
-LLVM_PRERELEASE_URL = (
-  'https://github.com/llvm/llvm-project/releases/'
-  'download/llvmorg-{version}-rc{release_candidate}' )
-LLVM_SOURCE = 'llvm-{version}.src'
-CLANG_SOURCE = 'clang-{version}.src'
-CLANG_TOOLS_SOURCE = 'clang-tools-extra-{version}.src'
+LLVM_HOME = 'https://github.com/llvm/llvm-project/'
+LLVM_ROOT = 'llvm-project/llvm'
 BUNDLE_NAME = 'clang+llvm-{version}-{target}'
 TARGET_REGEX = re.compile( '^Target: (?P<target>.*)$' )
 GITHUB_BASE_URL = 'https://api.github.com/'
@@ -91,37 +84,15 @@ def Retries( function, *args ):
       return True
 
 
-def Download( url ):
-  dest = url.rsplit( '/', 1 )[ -1 ]
-  print( 'Downloading {}.'.format( os.path.basename( dest ) ) )
-  r = requests.get( url, stream = True )
-  r.raise_for_status()
-  with open( dest, 'wb') as f:
-    for chunk in r.iter_content( chunk_size = CHUNK_SIZE ):
-      if chunk:
-        f.write( chunk )
-  r.close()
-
-
-def Extract( archive ):
-  print( 'Extract archive {0}.'.format( archive ) )
-  with tarfile.open( archive ) as f:
-    f.extractall( '.' )
-
-
-def GetLlvmBaseUrl( args ):
-  if args.release_candidate:
-    return LLVM_PRERELEASE_URL.format(
-      version = args.version,
-      release_candidate = args.release_candidate )
-
-  return LLVM_RELEASE_URL.format( version = args.version )
-
-
-def GetLlvmVersion( args ):
-  if args.release_candidate:
-    return args.version + 'rc' + str( args.release_candidate )
-  return args.version
+def CloneLlvmProject( args ):
+  git = shutil.which( 'git' )
+  subprocess.check_call( [ git,
+                           'clone',
+                           '--depth',
+                           '1',
+                           '-b',
+                           f'llvmorg-{args.version}',
+                           LLVM_HOME ] )
 
 
 def GetBundleVersion( args ):
@@ -130,33 +101,7 @@ def GetBundleVersion( args ):
   return args.version
 
 
-def DownloadSource( url, source ):
-  archive = source + '.tar.xz'
-
-  if not os.path.exists( archive ):
-    Download( url + '/' + archive )
-
-  if not os.path.exists( source ):
-    Extract( archive )
-
-
-def MoveClangSourceToLlvm( clang_source, llvm_source ):
-  os.rename( clang_source, 'clang' )
-  shutil.move(
-    os.path.join( DIR_OF_THIS_SCRIPT, 'clang' ),
-    os.path.join( DIR_OF_THIS_SCRIPT, llvm_source, 'tools' )
-  )
-
-
-def MoveClangToolsSourceToLlvm( clang_tools_source, llvm_source ):
-  os.rename( clang_tools_source, 'extra' )
-  shutil.move(
-    os.path.join( DIR_OF_THIS_SCRIPT, 'extra' ),
-    os.path.join( DIR_OF_THIS_SCRIPT, llvm_source, 'tools', 'clang', 'tools' )
-  )
-
-
-def BuildLlvm( build_dir, install_dir, llvm_source ):
+def BuildLlvm( build_dir, install_dir ):
   try:
     os.chdir( build_dir )
     cmake = shutil.which( 'cmake' )
@@ -167,7 +112,8 @@ def BuildLlvm( build_dir, install_dir, llvm_source ):
       '-G', 'Unix Makefiles',
       # A release build implies LLVM_ENABLE_ASSERTIONS=OFF.
       '-DCMAKE_BUILD_TYPE=Release',
-      '-DCMAKE_INSTALL_PREFIX={}'.format( install_dir ),
+      '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
+      f'-DCMAKE_INSTALL_PREFIX={ install_dir }',
       '-DLLVM_TARGETS_TO_BUILD=all',
       '-DLLVM_INCLUDE_EXAMPLES=OFF',
       '-DLLVM_INCLUDE_TESTS=OFF',
@@ -177,7 +123,7 @@ def BuildLlvm( build_dir, install_dir, llvm_source ):
       '-DLLVM_ENABLE_ZLIB=OFF',
       '-DLLVM_ENABLE_LIBEDIT=OFF',
       '-DLLVM_ENABLE_LIBXML2=OFF',
-      os.path.join( DIR_OF_THIS_SCRIPT, llvm_source )
+      os.path.join( DIR_OF_THIS_SCRIPT, LLVM_ROOT )
     ] )
 
     subprocess.check_call( [ cmake, '--build', '.', '--target', 'install' ] )
@@ -362,28 +308,15 @@ def ParseArguments():
 
 def Main():
   args = ParseArguments()
-  llvm_url = GetLlvmBaseUrl( args )
-  llvm_version = GetLlvmVersion( args )
-  llvm_source = LLVM_SOURCE.format( version = llvm_version )
-  clang_source = CLANG_SOURCE.format( version = llvm_version )
-  clang_tools_source = CLANG_TOOLS_SOURCE.format( version = llvm_version )
-  if not os.path.exists( os.path.join( DIR_OF_THIS_SCRIPT, llvm_source ) ):
-    DownloadSource( llvm_url, llvm_source )
-  if not os.path.exists( os.path.join( DIR_OF_THIS_SCRIPT, llvm_source,
-                                       'tools', 'clang' ) ):
-    DownloadSource( llvm_url, clang_source )
-    MoveClangSourceToLlvm( clang_source, llvm_source )
-  if not os.path.exists( os.path.join( DIR_OF_THIS_SCRIPT, llvm_source,
-                                       'tools', 'clang', 'tools', 'extra' ) ):
-    DownloadSource( llvm_url, clang_tools_source )
-    MoveClangToolsSourceToLlvm( clang_tools_source, llvm_source )
+  if not os.path.isdir( os.path.join( DIR_OF_THIS_SCRIPT, LLVM_ROOT ) ):
+    CloneLlvmProject( args )
   build_dir = os.path.join( DIR_OF_THIS_SCRIPT, 'build' )
-  install_dir = os.path.join( DIR_OF_THIS_SCRIPT, 'install' )
   if not os.path.exists( build_dir ):
     os.mkdir( build_dir )
+  install_dir = os.path.join( DIR_OF_THIS_SCRIPT, 'install' )
   if not os.path.exists( install_dir ):
     os.mkdir( install_dir )
-  BuildLlvm( build_dir, install_dir, llvm_source )
+  BuildLlvm( build_dir, install_dir )
   CheckLlvm( install_dir )
   target = GetTarget( install_dir )
   bundle_version = GetBundleVersion( args )
@@ -395,5 +328,5 @@ def Main():
   UploadLlvm( args, bundle_path )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
   Main()
