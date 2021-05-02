@@ -345,7 +345,7 @@ def ParseArguments():
                        help = 'GitHub api token. Defaults to environment '
                               'variable: GITHUB_TOKEN.' )
   parser.add_argument( '--gh-org', action='store',
-                       default = 'ycm-core',
+                       default = 'bstaletic',
                        help = 'GitHub organization to which '
                               'the archive will be uploaded to. ' )
   parser.add_argument( '--from-cache', action='store',
