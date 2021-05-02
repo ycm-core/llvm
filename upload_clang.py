@@ -312,7 +312,7 @@ def UploadBundleToGithub( user_name,
     request = requests.put(
       upload_url,
       data = bundle,
-      params = { 'name': os.path.split( bundle_name )[ 1 ] },
+      params = { 'name': os.path.split( bundle_file_name )[ 1 ] },
       auth = ( user_name, api_token ),
       headers = { 'Content-Type': 'application/x-xz' },
     )
