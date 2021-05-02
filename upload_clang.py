@@ -504,10 +504,10 @@ def Main():
   try:
     hashes = {}
     with TemporaryDirectory( args.keep_temp ) as temp_dir:
-      #license_file_name = DownloadClangLicense( args.version, temp_dir )
-      #for os_name, download_data in LLVM_DOWNLOAD_DATA.items():
-      #  BundleAndUpload( args, temp_dir, output_dir, os_name, download_data,
-      #                   license_file_name, hashes )
+      license_file_name = DownloadClangLicense( args.version, temp_dir )
+      for os_name, download_data in LLVM_DOWNLOAD_DATA.items():
+        BundleAndUpload( args, temp_dir, output_dir, os_name, download_data,
+                         license_file_name, hashes )
   finally:
     if not args.output_dir:
       shutil.rmtree( output_dir )
