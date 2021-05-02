@@ -300,6 +300,7 @@ def UploadBundleToGithub( user_name,
 
   upload_url = None
   for release in response.json():
+    print( release, flush = True )
     if release[ 'tag_name' ] != version:
       continue
     upload_url = release[ 'upload_url' ].replace( '{?name,label}', '' )
