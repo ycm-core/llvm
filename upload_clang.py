@@ -3,6 +3,7 @@
 import argparse
 import contextlib
 import json
+import lzma
 import os
 import os.path as p
 import platform
@@ -14,10 +15,6 @@ import tarfile
 import hashlib
 from distutils.spawn import find_executable
 
-try:
-  import lzma
-except ImportError:
-  from backports import lzma
 
 DIR_OF_THIS_SCRIPT = p.dirname( p.abspath( __file__ ) )
 DIR_OF_THIRD_PARTY = p.join( DIR_OF_THIS_SCRIPT, 'third_party' )
