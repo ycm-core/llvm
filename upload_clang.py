@@ -293,14 +293,13 @@ def UploadBundleToGithub( user_name,
                           os_name,
                           version,
                           bundle_file_name ):
-  response = requests.get( f'https://api.github.com/repos/{org}/llvm' )
+  response = requests.get( f'https://api.github.com/repos/{org}/llvm/releases' )
   if response.status_code != 200:
     message = response.json()[ 'message' ]
     sys.exit( f'Getting releases failed with message: { message }' )
 
   upload_url = None
   for release in response.json():
-    print( release, flush = True )
     if release[ 'tag_name' ] != version:
       continue
     upload_url = release[ 'upload_url' ].replace( '{?name,label}', '' )
@@ -311,12 +310,12 @@ def UploadBundleToGithub( user_name,
   print( 'Uploading to github...' )
   with open( bundle_file_name, 'rb' ) as bundle:
     request = requests.put(
-      f'https://api.github.com/content/{org}/llvm/{file_path}',
+      upload_url,
       data = bundle,
       params = { 'name': os.path.split( bundle_name )[ 1 ] },
       auth = ( user_name, api_token ),
       headers = { 'Content-Type': 'application/x-xz' },
-      )
+    )
     request.raise_for_status()
 
 
