@@ -21,5 +21,5 @@ jobs:
         env:
           GITHUB_USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./upload_clang.py ${{ github.event.inputs.version }} --gh-org bstaletic
+        run: ./upload_clang.py ${{ github.event.inputs.version }} --gh-org bstaletic --no-upload
 

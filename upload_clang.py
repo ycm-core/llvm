@@ -2,11 +2,9 @@
 
 import argparse
 import contextlib
-import json
-import lzma
 import os
-import os.path as p
 import platform
+import requests
 import shutil
 import subprocess
 import sys
@@ -14,15 +12,11 @@ import tempfile
 import tarfile
 import hashlib
 from distutils.spawn import find_executable
-
-
-DIR_OF_THIS_SCRIPT = p.dirname( p.abspath( __file__ ) )
-DIR_OF_THIRD_PARTY = p.join( DIR_OF_THIS_SCRIPT, 'third_party' )
-
-
-import urllib.error
-import urllib.request
 from io import BytesIO
+
+import lzma
+
+DIR_OF_THIS_SCRIPT = os.path.dirname( os.path.abspath( __file__ ) )
 
 
 def OnWindows():
@@ -202,20 +196,27 @@ def TemporaryDirectory( keep_temp ):
 
 def DownloadClangLicense( version, destination ):
   print( 'Downloading license...' )
-  file_name = os.path.join( destination, 'LICENSE.TXT' )
-  with urllib.request.urlopen(
-      f'https://releases.llvm.org/{ version }/LICENSE.TXT' ) as response:
+  request = requests.get(
+    f'https://releases.llvm.org/{version}/LICENSE.TXT',
+    stream = True )
+  request.raise_for_status()
 
-    with open( file_name, 'wb' ) as f:
-      f.write( response.read() )
+  file_name = os.path.join( destination, 'LICENSE.TXT' )
+  with open( file_name, 'wb' ) as f:
+    f.write( request.content )
+
+  request.close()
 
   return file_name
 
 
 def Download( url ):
-  print( f'Downloading { url.rsplit( "/", 1 )[ -1 ] }' )
-  with urllib.request.urlopen( url ) as response:
-    return response.read()
+  print( 'Downloading {}'.format( url.rsplit( '/', 1 )[ -1 ] ) )
+  request = requests.get( url, stream=True )
+  request.raise_for_status()
+  content = request.content
+  request.close()
+  return content
 
 
 def ExtractTar( uncompressed_data, destination ):
@@ -292,42 +293,30 @@ def UploadBundleToGithub( user_name,
                           os_name,
                           version,
                           bundle_file_name ):
-  upload_url = None
-  try:
-    response = urllib.request.urlopen(
-      f'https://api.github.com/repos/{org}/llvm/releases' )
-    response_json = json.loads( response.read() )
-    response.close()
-    for release in response_json:
-      if release[ 'tag_name' ] != version:
-        continue
-    upload_url = release[ 'upload_url' ].replace( '{?name,label}', '' )
-    upload_url += '?name=' + os.path.split( bundle_file_name )[ 1 ]
-  except urllib.error.URLError as e:
+  response = requests.get( f'https://api.github.com/repos/{org}/llvm' )
+  if response.status_code != 200:
     message = response.json()[ 'message' ]
-    sys.exit( f'Getting releases failed with message: { e.fp.read() }' )
-    e.close()
+    sys.exit( f'Getting releases failed with message: { message }' )
 
+  upload_url = None
+  for release in response.json():
+    if release[ 'tag_name' ] != version:
+      continue
+    upload_url = release[ 'upload_url' ].replace( '{?name,label}', '' )
 
   if upload_url is None:
-    os.exit( f'Version { version } not published. '
-             'Run package_llvm.py in llvm repo first.' )
+    sys.exit( f'Release { version } not published yet.' )
+
   print( 'Uploading to github...' )
-  repo = bundle_file_name[ : bundle_file_name.find( '-' ) ]
   with open( bundle_file_name, 'rb' ) as bundle:
-    request = urllib.request.Request(
-      upload_url,
+    request = requests.put(
+      f'https://api.github.com/content/{org}/llvm/{file_path}',
       data = bundle,
+      params = { 'name': os.path.split( bundle_name )[ 1 ] },
+      auth = ( user_name, api_token ),
       headers = { 'Content-Type': 'application/x-xz' },
-      method = 'POST' )
-    auth_handler = urllib.request.HTTPBasicAuthHandler()
-    auth_handler.add_password( None,
-                               'https://api.github.com/',
-                               user_name,
-                               api_token )
-    opener = urllib.request.build_opener( auth_handler )
-    request = opener.open( request )
-    request.close()
+      )
+    request.raise_for_status()
 
 
 def ParseArguments():
@@ -459,8 +448,8 @@ def BundleAndUpload( args, temp_dir, output_dir, os_name, download_data,
     else:
       raise AssertionError( 'Format not yet implemented: {}'.format(
         download_data[ 'format' ] ) )
-  except urllib.error.HTTPError as error:
-    if error.code != 404:
+  except requests.exceptions.HTTPError as error:
+    if error.response.status_code != 404:
       raise
     print( f'Cannot download {llvm_package}' )
     return
@@ -486,12 +475,6 @@ def BundleAndUpload( args, temp_dir, output_dir, os_name, download_data,
                             os_name,
                             args.version,
                             archive_path )
-
-
-def Overwrite( src, dest ):
-  if os.path.exists( dest ):
-    shutil.rmtree( dest )
-  shutil.copytree( src, dest )
 
 
 def Main():
