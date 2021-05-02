@@ -2,6 +2,7 @@
 
 import argparse
 import contextlib
+import json
 import os
 import os.path as p
 import platform
@@ -305,7 +306,7 @@ def UploadBundleToGithub( user_name,
         continue
     upload_url = release[ 'upload_url' ].replace( '{?name,label}', '' )
     upload_url += '?name=' + os.path.split( bundle_file_name )[ 1 ]
-  except URLError as e:
+  except urllib.error.URLError as e:
     message = response.json()[ 'message' ]
     sys.exit( f'Getting releases failed with message: { e.fp.read() }' )
     e.close()
