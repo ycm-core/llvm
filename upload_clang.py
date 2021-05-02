@@ -299,7 +299,7 @@ def UploadBundleToGithub( user_name,
     response_json = json.loads( response.read() )
     response.close()
     for release in response_json:
-      if release[ 'tag_name' ] != bundle_version:
+      if release[ 'tag_name' ] != version:
         continue
     upload_url = release[ 'upload_url' ].replace( '{?name,label}', '' )
     upload_url += '?name=' + os.path.split( bundle_file_name )[ 1 ]
