@@ -12,6 +12,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # LLVM takes a _long_ time to build. Set timeout to 8 hours
+    timeout-minutes: 480
     container: 'youcompleteme/llvm:build'
     steps:
       - uses: actions/checkout@v2
