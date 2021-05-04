@@ -348,6 +348,10 @@ def ParseArguments():
   parser.add_argument( '--keep-temp', action='store_true',
                        help = "For testing, don't delete the temp dir" )
 
+  parser.add_argument( '--only',
+                       action='append',
+                       help = "only this arch" )
+
   args = parser.parse_args()
 
   if not args.gh_user:
@@ -489,8 +493,9 @@ def Main():
     with TemporaryDirectory( args.keep_temp ) as temp_dir:
       license_file_name = DownloadClangLicense( args.version, temp_dir )
       for os_name, download_data in LLVM_DOWNLOAD_DATA.items():
-        BundleAndUpload( args, temp_dir, output_dir, os_name, download_data,
-                         license_file_name, hashes )
+        if not args.only or os_name in args.only:
+          BundleAndUpload( args, temp_dir, output_dir, os_name, download_data,
+                           license_file_name, hashes )
   finally:
     if not args.output_dir:
       shutil.rmtree( output_dir )
