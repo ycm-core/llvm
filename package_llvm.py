@@ -173,7 +173,12 @@ def BuildLlvm( build_dir, install_dir, llvm_source_dir ):
       os.path.join( llvm_source_dir, 'llvm' )
     ] )
 
-    subprocess.check_call( [ cmake, '--build', '.', '--target', 'install' ] )
+    subprocess.check_call( [
+      cmake,
+      '--build', '.',
+      '--parallel',
+      subprocess.check_output( [ 'nproc' ] ).decode( 'utf-8' ).strip(),
+      '--target', 'install' ] )
 
 
 def CheckDependencies( name, path, versions ):
@@ -205,7 +210,7 @@ def CheckLlvm( install_dir ):
   CheckDependencies(
     'clangd', os.path.join( install_dir, 'bin', 'clangd' ), versions )
 
-  print( 'Maximum versions required:' )
+  print( 'Minimum versions required:' )
   for library, values in versions.items():
     print( library + ' ' + str( max( values ) ) )
 
@@ -274,7 +279,7 @@ def UploadLlvm( args, bundle_path ):
 
       if response.status_code != 204:
         message = response.json()[ 'message' ]
-        sys.exit( 'Creating release failed with message: {}'.format( message ) )
+        sys.exit( 'Deleting release failed with message: {}'.format( message ) )
 
       break
 
@@ -385,7 +390,8 @@ def Main():
   archive_name = bundle_name + '.tar.xz'
   bundle_path = os.path.join( base_dir, archive_name )
   if not os.path.exists( bundle_path ):
-    BundleLlvm( bundle_name, archive_name, install_dir, bundle_version )
+    with WorkingDirectory( base_dir ):
+      BundleLlvm( bundle_name, archive_name, install_dir, bundle_version )
   UploadLlvm( args, bundle_path )
 
 

@@ -4,6 +4,7 @@ CONTAINER=youcompleteme/llvm:build
 
 pushd $(dirname $0)
   docker run --mount src="$(pwd)/../",target=/root/llvm,type=bind \
+             --mount type=volume,target=/volume \
              -it ${CONTAINER} \
              "$@"
 popd
