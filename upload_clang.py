@@ -57,7 +57,7 @@ def TemporaryDirectory( keep_temp ):
     yield temp_dir
   finally:
     if keep_temp:
-      print( f"*** Please delete temp dir: {temp_dir}" )
+      print( "*** Please delete temp dir: {}".format( temp_dir ) )
     else:
       shutil.rmtree( temp_dir )
 
@@ -65,7 +65,7 @@ def TemporaryDirectory( keep_temp ):
 def DownloadClangLicense( version, destination ):
   print( 'Downloading license...' )
   request = requests.get(
-    f'https://releases.llvm.org/{version}/LICENSE.TXT',
+    'https://releases.llvm.org/{}/LICENSE.TXT'.format( version ),
     stream = True )
   request.raise_for_status()
 
@@ -137,7 +137,7 @@ def MakeBundle( files_to_copy,
                 hashes,
                 version ):
   archive_name = os.path.basename( bundle_file_name )
-  print( f'Bundling files to { archive_name }' )
+  print( 'Bundling files to {}'.format( archive_name ) )
   with tarfile.open( name=bundle_file_name, mode='w:bz2' ) as tar_file:
     tar_file.add( license_file_name, arcname='LICENSE.TXT' )
     for item in files_to_copy:
@@ -146,7 +146,7 @@ def MakeBundle( files_to_copy,
 
       name = os.path.join( source_dir, source_file_name )
       if not os.path.exists( name ):
-        raise RuntimeError( f'File {name} does not exist.' )
+        raise RuntimeError( 'File {} does not exist.'.format( name ) )
       tar_file.add( name = name, arcname = target_file_name )
 
   sys.stdout.write( 'Calculating checksum: ' )
@@ -161,10 +161,11 @@ def UploadBundleToGithub( user_name,
                           os_name,
                           version,
                           bundle_file_name ):
-  response = requests.get( f'https://api.github.com/repos/{org}/llvm/releases' )
+  response = requests.get(
+    'https://api.github.com/repos/{}/llvm/releases'.format( org ) )
   if response.status_code != 200:
     message = response.json()[ 'message' ]
-    sys.exit( f'Getting releases failed with message: { message }' )
+    sys.exit( 'Getting releases failed with message: {}'.format( message ) )
 
   upload_url = None
   for release in response.json():
@@ -173,7 +174,7 @@ def UploadBundleToGithub( user_name,
     upload_url = release[ 'upload_url' ].replace( '{?name,label}', '' )
 
   if upload_url is None:
-    sys.exit( f'Release { version } not published yet.' )
+    sys.exit( 'Release {} not published yet.'.format( version ) )
 
   print( 'Uploading to github...' )
   with open( bundle_file_name, 'rb' ) as bundle:
@@ -239,7 +240,7 @@ def PrepareBundleBuiltIn( extract_fun,
   package_dir = None
   if cache_dir:
     archive = os.path.join( cache_dir, llvm_package )
-    print( f'Extracting cached {llvm_package}' )
+    print( 'Extracting cached {}'.format( llvm_package ) )
     try:
       with open( archive, 'rb' ) as f:
         package_dir = extract_fun( f.read(), temp_dir )
@@ -254,10 +255,10 @@ def PrepareBundleBuiltIn( extract_fun,
         with open( archive, 'wb' ) as f:
           f.write( compressed_data )
       except IOError as e:
-        print( f"Unable to write cache file: {e.message}" )
+        print( "Unable to write cache file: {}".format( e.message ) )
         pass
 
-    print( f'Extracting {llvm_package}' )
+    print( 'Extracting {}'.format( llvm_package ) )
     package_dir = extract_fun( compressed_data, temp_dir )
 
   return package_dir
@@ -276,7 +277,7 @@ def PrepareBundleNSIS( cache_dir, llvm_package, download_url, temp_dir ):
   if cache_dir:
     archive = os.path.join( cache_dir, llvm_package )
     if os.path.exists( archive ):
-      print( f'Extracting cached {llvm_package}' )
+      print( 'Extracting cached {}'.format( llvm_package ) )
     else:
       archive = None
 
@@ -286,7 +287,7 @@ def PrepareBundleNSIS( cache_dir, llvm_package, download_url, temp_dir ):
     archive = os.path.join( dest_dir, llvm_package )
     with open( archive, 'wb' ) as f:
       f.write( compressed_data )
-    print( f'Extracting {llvm_package}' )
+    print( 'Extracting {}'.format( llvm_package ) )
 
   return Extract7Z( llvm_package, archive, temp_dir )
 
@@ -319,7 +320,7 @@ def BundleAndUpload( args, temp_dir, output_dir, os_name, download_data,
   except requests.exceptions.HTTPError as error:
     if error.response.status_code != 404:
       raise
-    print( f'Cannot download {llvm_package}' )
+    print( 'Cannot download {}'.format( llvm_package ) )
     return
 
   for binary in [ 'clangd' ]:
@@ -362,7 +363,7 @@ def Main():
       shutil.rmtree( output_dir )
 
   for bundle_file_name, sha256 in hashes.items():
-    print( f'Checksum for {bundle_file_name}: {sha256}' )
+    print( 'Checksum for {}: {}'.format( bundle_file_name, sha256 ) )
 
 
 if __name__ == "__main__":
