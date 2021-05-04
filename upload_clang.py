@@ -323,7 +323,7 @@ def BundleAndUpload( args, temp_dir, output_dir, os_name, download_data,
     print( 'Cannot download {}'.format( llvm_package ) )
     return
 
-  for binary in [ 'clangd' ]:
+  for binary in [ 'libclang', 'clangd' ]:
     package_name = binary + '_package'
     archive_name = download_data[ package_name ][ 'name' ].format(
       os_name = os_name,
