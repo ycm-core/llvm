@@ -1,0 +1,27 @@
+name: UploadClang
+
+on:
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      version:
+        description: LLVM Version
+        required: true
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - name: install requirements
+        run: pip3 install -r requirements.txt
+      - name: Package
+        env:
+          GITHUB_USERNAME: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./upload_clang.py ${{ github.event.inputs.version }} --gh-org bstaletic --no-upload
+

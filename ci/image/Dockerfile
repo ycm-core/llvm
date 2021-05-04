@@ -13,6 +13,7 @@ RUN apt-get update && \
                      build-essential \
                      python3-pip \
                      python3-setuptools \
+                     p7zip-full \
                      sudo && \
   apt-get -y autoremove
 
@@ -20,7 +21,7 @@ RUN ln -fs /usr/share/zoneinfo/Europe/London /etc/localtime && \
   dpkg-reconfigure --frontend noninteractive tzdata
 
 # Get a recent cmake
-RUN pip3 install cmake
+RUN pip3 install cmake requests debugpy
 
 # clean up
 RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* &&\
