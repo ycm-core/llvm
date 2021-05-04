@@ -2,6 +2,7 @@
 
 import argparse
 import collections
+import contextlib
 import functools
 import os
 import platform
@@ -24,9 +25,7 @@ LLVM_RELEASE_URL = (
 LLVM_PRERELEASE_URL = (
   'https://github.com/llvm/llvm-project/releases/'
   'download/llvmorg-{version}-rc{release_candidate}' )
-LLVM_SOURCE = 'llvm-{version}.src'
-CLANG_SOURCE = 'clang-{version}.src'
-CLANG_TOOLS_SOURCE = 'clang-tools-extra-{version}.src'
+LLVM_SOURCE = 'llvm-project-{version}.src'
 BUNDLE_NAME = 'clang+llvm-{version}-{target}'
 TARGET_REGEX = re.compile( '^Target: (?P<target>.*)$' )
 GITHUB_BASE_URL = 'https://api.github.com/'
@@ -41,6 +40,16 @@ OBJDUMP_NEEDED_REGEX = re.compile(
   '^  NEEDED               (?P<dependency>.*)$' )
 OBJDUMP_VERSION_REGEX = re.compile(
   '^    0x[0-9a-f]+ 0x00 \d+ (?P<library>.*)_(?P<version>.*)$' )
+
+
+@contextlib.contextmanager
+def WorkingDirectory( cwd ):
+  old_cwd = os.getcwd()
+  os.chdir( cwd )
+  try:
+    yield
+  finally:
+    os.chdir( old_cwd )
 
 
 @functools.total_ordering
@@ -140,25 +149,8 @@ def DownloadSource( url, source ):
     Extract( archive )
 
 
-def MoveClangSourceToLlvm( clang_source, llvm_source ):
-  os.rename( clang_source, 'clang' )
-  shutil.move(
-    os.path.join( DIR_OF_THIS_SCRIPT, 'clang' ),
-    os.path.join( DIR_OF_THIS_SCRIPT, llvm_source, 'tools' )
-  )
-
-
-def MoveClangToolsSourceToLlvm( clang_tools_source, llvm_source ):
-  os.rename( clang_tools_source, 'extra' )
-  shutil.move(
-    os.path.join( DIR_OF_THIS_SCRIPT, 'extra' ),
-    os.path.join( DIR_OF_THIS_SCRIPT, llvm_source, 'tools', 'clang', 'tools' )
-  )
-
-
-def BuildLlvm( build_dir, install_dir, llvm_source ):
-  try:
-    os.chdir( build_dir )
+def BuildLlvm( build_dir, install_dir, llvm_source_dir ):
+  with WorkingDirectory( build_dir ):
     cmake = shutil.which( 'cmake' )
     # See https://llvm.org/docs/CMake.html#llvm-specific-variables for the CMake
     # variables defined by LLVM.
@@ -168,6 +160,7 @@ def BuildLlvm( build_dir, install_dir, llvm_source ):
       # A release build implies LLVM_ENABLE_ASSERTIONS=OFF.
       '-DCMAKE_BUILD_TYPE=Release',
       '-DCMAKE_INSTALL_PREFIX={}'.format( install_dir ),
+      '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
       '-DLLVM_TARGETS_TO_BUILD=all',
       '-DLLVM_INCLUDE_EXAMPLES=OFF',
       '-DLLVM_INCLUDE_TESTS=OFF',
@@ -177,12 +170,15 @@ def BuildLlvm( build_dir, install_dir, llvm_source ):
       '-DLLVM_ENABLE_ZLIB=OFF',
       '-DLLVM_ENABLE_LIBEDIT=OFF',
       '-DLLVM_ENABLE_LIBXML2=OFF',
-      os.path.join( DIR_OF_THIS_SCRIPT, llvm_source )
+      os.path.join( llvm_source_dir, 'llvm' )
     ] )
 
-    subprocess.check_call( [ cmake, '--build', '.', '--target', 'install' ] )
-  finally:
-    os.chdir( DIR_OF_THIS_SCRIPT )
+    subprocess.check_call( [
+      cmake,
+      '--build', '.',
+      '--parallel',
+      subprocess.check_output( [ 'nproc' ] ).decode( 'utf-8' ).strip(),
+      '--target', 'install' ] )
 
 
 def CheckDependencies( name, path, versions ):
@@ -214,7 +210,7 @@ def CheckLlvm( install_dir ):
   CheckDependencies(
     'clangd', os.path.join( install_dir, 'bin', 'clangd' ), versions )
 
-  print( 'Maximum versions required:' )
+  print( 'Minimum versions required:' )
   for library, values in versions.items():
     print( library + ' ' + str( max( values ) ) )
 
@@ -283,7 +279,7 @@ def UploadLlvm( args, bundle_path ):
 
       if response.status_code != 204:
         message = response.json()[ 'message' ]
-        sys.exit( 'Creating release failed with message: {}'.format( message ) )
+        sys.exit( 'Deleting release failed with message: {}'.format( message ) )
 
       break
 
@@ -343,6 +339,9 @@ def ParseArguments():
                        help = 'GitHub organization to which '
                               'the archive will be uploaded to. ' )
 
+  parser.add_argument( '--base-dir', action='store', help='WOrking dir',
+                       default = DIR_OF_THIS_SCRIPT )
+
   args = parser.parse_args()
 
   if not args.gh_user:
@@ -359,39 +358,40 @@ def ParseArguments():
 
   return args
 
-
 def Main():
   args = ParseArguments()
+  base_dir = os.path.abspath( args.base_dir )
+  if not os.path.isdir( base_dir ):
+    os.mkdir( base_dir )
+
   llvm_url = GetLlvmBaseUrl( args )
   llvm_version = GetLlvmVersion( args )
   llvm_source = LLVM_SOURCE.format( version = llvm_version )
-  clang_source = CLANG_SOURCE.format( version = llvm_version )
-  clang_tools_source = CLANG_TOOLS_SOURCE.format( version = llvm_version )
-  if not os.path.exists( os.path.join( DIR_OF_THIS_SCRIPT, llvm_source ) ):
-    DownloadSource( llvm_url, llvm_source )
-  if not os.path.exists( os.path.join( DIR_OF_THIS_SCRIPT, llvm_source,
-                                       'tools', 'clang' ) ):
-    DownloadSource( llvm_url, clang_source )
-    MoveClangSourceToLlvm( clang_source, llvm_source )
-  if not os.path.exists( os.path.join( DIR_OF_THIS_SCRIPT, llvm_source,
-                                       'tools', 'clang', 'tools', 'extra' ) ):
-    DownloadSource( llvm_url, clang_tools_source )
-    MoveClangToolsSourceToLlvm( clang_tools_source, llvm_source )
-  build_dir = os.path.join( DIR_OF_THIS_SCRIPT, 'build' )
-  install_dir = os.path.join( DIR_OF_THIS_SCRIPT, 'install' )
+  llvm_source_dir = os.path.join( base_dir, llvm_source )
+
+  if not os.path.exists( llvm_source_dir ):
+    with WorkingDirectory( base_dir ):
+      DownloadSource( llvm_url, llvm_source )
+
+  build_dir = os.path.join( base_dir, 'build' )
+  install_dir = os.path.join( base_dir, 'install' )
+
   if not os.path.exists( build_dir ):
     os.mkdir( build_dir )
   if not os.path.exists( install_dir ):
     os.mkdir( install_dir )
-  BuildLlvm( build_dir, install_dir, llvm_source )
+
+  BuildLlvm( build_dir, install_dir, llvm_source_dir )
   CheckLlvm( install_dir )
+
   target = GetTarget( install_dir )
   bundle_version = GetBundleVersion( args )
   bundle_name = BUNDLE_NAME.format( version = bundle_version, target = target )
   archive_name = bundle_name + '.tar.xz'
-  bundle_path = os.path.join( DIR_OF_THIS_SCRIPT, archive_name )
+  bundle_path = os.path.join( base_dir, archive_name )
   if not os.path.exists( bundle_path ):
-    BundleLlvm( bundle_name, archive_name, install_dir, bundle_version )
+    with WorkingDirectory( base_dir ):
+      BundleLlvm( bundle_name, archive_name, install_dir, bundle_version )
   UploadLlvm( args, bundle_path )
 
 
