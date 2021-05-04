@@ -246,6 +246,7 @@ def Extract7Z( llvm_package, archive, destination ):
     executable = find_executable( '7z' )
   else:
     # On Linux, p7zip 16.02 is required.
+    # apt-get install p7zip-full
     executable = find_executable( '7z' )
 
   command = [
@@ -372,9 +373,9 @@ def PrepareBundleBuiltIn( extract_fun,
   package_dir = None
   if cache_dir:
     archive = os.path.join( cache_dir, llvm_package )
-    print( 'Extracting cached {}'.format( llvm_package ) )
     try:
       with open( archive, 'rb' ) as f:
+        print( 'Extracting cached {}'.format( llvm_package ) )
         package_dir = extract_fun( f.read(), temp_dir )
     except IOError:
       pass
