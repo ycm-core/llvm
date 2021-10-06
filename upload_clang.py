@@ -32,7 +32,7 @@ LLVM_DOWNLOAD_DATA = {
     'url': 'https://github.com/llvm/llvm-project/releases/download/'
            'llvmorg-{llvm_version}/{llvm_package}',
     'format': 'nsis',
-    'llvm_package': 'LLVM-{llvm_version}-{os_name}.exe',
+    'llvm_package': 'llvm-{llvm_version}-{os_name}.exe',
     'clangd_package': {
       'name': 'clangd-{llvm_version}-{os_name}.tar.bz2',
       'files_to_copy': [
@@ -51,7 +51,7 @@ LLVM_DOWNLOAD_DATA = {
     'url': 'https://github.com/llvm/llvm-project/releases/download/'
            'llvmorg-{llvm_version}/{llvm_package}',
     'format': 'nsis',
-    'llvm_package': 'LLVM-{llvm_version}-{os_name}.exe',
+    'llvm_package': 'llvm-{llvm_version}-{os_name}.exe',
     'clangd_package': {
       'name': 'clangd-{llvm_version}-{os_name}.tar.bz2',
       'files_to_copy': [
