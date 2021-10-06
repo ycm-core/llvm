@@ -298,13 +298,25 @@ def UploadBundleToGithub( user_name,
     sys.exit( 'Getting releases failed with message: {}'.format( message ) )
 
   upload_url = None
+  assets_url = None
   for release in response.json():
     if release[ 'tag_name' ] != version:
       continue
     upload_url = release[ 'upload_url' ].replace( '{?name,label}', '' )
+    assets_url = release[ 'assets_url' ]
 
   if upload_url is None:
     sys.exit( 'Release {} not published yet.'.format( version ) )
+
+  for asset in requests.get( assets_url ).json():
+    if asset[ 'name' ] == os.path.split( bundle_file_name )[ 1 ] ):
+      print( 'Removing an archive of the same name that already exists '
+             'for the specified release.' )
+      request = requests.delete(
+        asset[ 'url' ],
+        auth = ( user_name, api_token ),
+        headers = { 'Accept': 'application/vnd.github.v3+json' } )
+      request.raise_for_status()
 
   print( 'Uploading to github...' )
   with open( bundle_file_name, 'rb' ) as bundle:
