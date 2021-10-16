@@ -1,0 +1,5 @@
+set( CMAKE_SYSTEM_NAME Linux )
+set( CC arm-linux-gnueabihf-gcc )
+set( CXX arm-linux-gnueabihf-g++ )
+set( CFLAGS "${CFLAGS} -mcpu=generic-armv7-a" )
+set( CXXFLAGS "${CXXFLAGS} -mcpu=generic-armv7-a" )

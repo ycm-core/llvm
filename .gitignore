@@ -1,5 +1,3 @@
-build
-install
 llvm*
-cfe*
+tblgen*
 clang+llvm*

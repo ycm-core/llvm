@@ -11,14 +11,20 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-16.04
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ x86_64, arm, aarch64 ]
     steps:
       - uses: actions/checkout@v2
       - name: install requirements
         run: pip3 install -r requirements.txt
+      - name: install cross-compilers
+        run: sudo apt-get install g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
       - name: Package
         env:
           GITHUB_USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./package_llvm.py ${{ github.event.inputs.version }}
+        run: ./package_llvm.py --target-architecture ${{ matrix.target }} ${{ github.event.inputs.version }}
 

@@ -103,7 +103,7 @@ LLVM_DOWNLOAD_DATA = {
       ]
     }
   },
-  'i386-unknown-freebsd11': {
+  'i386-unknown-freebsd13': {
     'url': 'https://github.com/llvm/llvm-project/releases/download/'
            'llvmorg-{llvm_version}/{llvm_package}',
     'format': 'lzma',
@@ -122,7 +122,7 @@ LLVM_DOWNLOAD_DATA = {
       ]
     }
   },
-  'amd64-unknown-freebsd11': {
+  'amd64-unknown-freebsd13': {
     'url': 'https://github.com/llvm/llvm-project/releases/download/'
            'llvmorg-{llvm_version}/{llvm_package}',
     'format': 'lzma',
@@ -142,8 +142,8 @@ LLVM_DOWNLOAD_DATA = {
     }
   },
   'aarch64-linux-gnu': {
-    'url': 'https://github.com/llvm/llvm-project/releases/download/'
-           'llvmorg-{llvm_version}/{llvm_package}',
+    'url': ( 'https://github.com/ycm-core/llvm/'
+             'releases/download/{llvm_version}/{llvm_package}' ),
     'format': 'lzma',
     'llvm_package': 'clang+llvm-{llvm_version}-{os_name}.tar.xz',
     'clangd_package': {
@@ -161,8 +161,8 @@ LLVM_DOWNLOAD_DATA = {
     }
   },
   'armv7a-linux-gnueabihf': {
-    'url': 'https://github.com/llvm/llvm-project/releases/download/'
-           'llvmorg-{llvm_version}/{llvm_package}',
+    'url': ( 'https://github.com/ycm-core/llvm/'
+             'releases/download/{llvm_version}/{llvm_package}' ),
     'format': 'lzma',
     'llvm_package': 'clang+llvm-{llvm_version}-{os_name}.tar.xz',
     'clangd_package': {
@@ -237,7 +237,7 @@ def Extract7Z( llvm_package, archive, destination ):
 
     with winreg.OpenKey( winreg.HKEY_LOCAL_MACHINE, 'SOFTWARE\\7-Zip' ) as key:
       executable = os.path.join( winreg.QueryValueEx( key, "Path" )[ 0 ],
-                                '7z.exe' )
+                                 '7z.exe' )
   elif OnMac():
     # p7zip is available from homebrew (brew install p7zip)
     executable = find_executable( '7z' )
@@ -309,7 +309,7 @@ def UploadBundleToGithub( user_name,
     sys.exit( 'Release {} not published yet.'.format( version ) )
 
   for asset in requests.get( assets_url ).json():
-    if asset[ 'name' ] == os.path.split( bundle_file_name )[ 1 ] ):
+    if asset[ 'name' ] == os.path.split( bundle_file_name )[ 1 ]:
       print( 'Removing an archive of the same name that already exists '
              'for the specified release.' )
       request = requests.delete(

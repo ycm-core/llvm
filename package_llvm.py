@@ -8,7 +8,6 @@ import os
 import platform
 import re
 import requests
-import stat
 import shutil
 import subprocess
 import sys
@@ -27,19 +26,37 @@ LLVM_PRERELEASE_URL = (
   'download/llvmorg-{version}-rc{release_candidate}' )
 LLVM_SOURCE = 'llvm-project-{version}.src'
 BUNDLE_NAME = 'clang+llvm-{version}-{target}'
-TARGET_REGEX = re.compile( '^Target: (?P<target>.*)$' )
 GITHUB_BASE_URL = 'https://api.github.com/'
 GITHUB_RELEASES_URL = (
   GITHUB_BASE_URL + 'repos/{owner}/{repo}/releases' )
 GITHUB_ASSETS_URL = (
   GITHUB_BASE_URL + 'repos/{owner}/{repo}/releases/assets/{asset_id}' )
 RETRY_INTERVAL = 10
-SHARED_LIBRARY_REGEX = re.compile( '.*\.so(.\d+)*$' )
+SHARED_LIBRARY_REGEX = re.compile( r'.*\.so(.\d+)*$' )
 
 OBJDUMP_NEEDED_REGEX = re.compile(
   '^  NEEDED               (?P<dependency>.*)$' )
 OBJDUMP_VERSION_REGEX = re.compile(
-  '^    0x[0-9a-f]+ 0x00 \d+ (?P<library>.*)_(?P<version>.*)$' )
+  r'^    0x[0-9a-f]+ 0x00 \d+ (?P<library>.*)_(?P<version>.*)$' )
+
+assert platform.system() == 'Linux', 'GNU/Linux only, for now'
+ENV_DATA = {
+  'x86_64': {
+    'host': 'x86_64-unknown-linux-gnu',
+    'target': 'x86_64-unknown-linux-gnu',
+    'archive': 'x86_64-unknown-linux-gnu'
+  },
+  'arm': {
+    'host': 'x86_64-unknown-linux-gnu',
+    'target': 'arm-linux-gnueabihf',
+    'archive': 'armv7a-linux-gnueabihf'
+  },
+  'aarch64': {
+    'host': 'x86_64-unknown-linux-gnu',
+    'target': 'aarch64-linux-gnu',
+    'archive': 'aarch64-linux-gnu'
+  }
+}
 
 
 @contextlib.contextmanager
@@ -65,7 +82,7 @@ class Version( object ):
   def __eq__( self, other ):
     if not isinstance( other, Version ):
       raise ValueError( 'Must be compared with a Version object.' )
-    return ( ( self.major, self.minor, self.patch ) == 
+    return ( ( self.major, self.minor, self.patch ) ==
              ( other.major, other.minor, other.patch ) )
 
 
@@ -80,7 +97,6 @@ class Version( object ):
     return '.'.join( ( str( self.major ),
                        str( self.minor ),
                        str( self.patch ) ) )
-
 
 
 def Retries( function, *args ):
@@ -105,7 +121,7 @@ def Download( url ):
   print( 'Downloading {}.'.format( os.path.basename( dest ) ) )
   r = requests.get( url, stream = True )
   r.raise_for_status()
-  with open( dest, 'wb') as f:
+  with open( dest, 'wb' ) as f:
     for chunk in r.iter_content( chunk_size = CHUNK_SIZE ):
       if chunk:
         f.write( chunk )
@@ -149,19 +165,32 @@ def DownloadSource( url, source ):
     Extract( archive )
 
 
-def BuildLlvm( build_dir, install_dir, llvm_source_dir ):
+def BuildLlvm( build_dir,
+               install_dir,
+               llvm_source_dir,
+               tblgen_root,
+               target_architecture ):
+  host = ENV_DATA[ target_architecture ][ 'host' ]
+  target = ENV_DATA[ target_architecture ][ 'target' ]
+  print( 'Host triple:', host )
+  print( 'Target triple:', target )
   with WorkingDirectory( build_dir ):
     cmake = shutil.which( 'cmake' )
     # See https://llvm.org/docs/CMake.html#llvm-specific-variables for the CMake
     # variables defined by LLVM.
-    subprocess.check_call( [
+    cmake_configure_args = [
       cmake,
-      '-G', 'Unix Makefiles',
       # A release build implies LLVM_ENABLE_ASSERTIONS=OFF.
       '-DCMAKE_BUILD_TYPE=Release',
       '-DCMAKE_INSTALL_PREFIX={}'.format( install_dir ),
       '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
+      '-DLLVM_DEFAULT_TARGET_TRIPLE={}'.format( target ),
       '-DLLVM_TARGETS_TO_BUILD=all',
+      '-DLLVM_TABLEGEN={}'.format(
+        os.path.join( tblgen_root, 'bin', 'llvm-tblgen' ) ),
+      '-DCLANG_TABLEGEN={}'.format(
+        os.path.join( tblgen_root, 'bin', 'clang-tblgen' ) ),
+      '-DLLVM_TARGET_ARCH={}'.format( target_architecture ),
       '-DLLVM_INCLUDE_EXAMPLES=OFF',
       '-DLLVM_INCLUDE_TESTS=OFF',
       '-DLLVM_INCLUDE_GO_TESTS=OFF',
@@ -171,7 +200,15 @@ def BuildLlvm( build_dir, install_dir, llvm_source_dir ):
       '-DLLVM_ENABLE_LIBEDIT=OFF',
       '-DLLVM_ENABLE_LIBXML2=OFF',
       os.path.join( llvm_source_dir, 'llvm' )
-    ] )
+    ]
+    if target != host: # We're cross compilinging and need a toolchain file.
+      cmake_configure_args.append(
+        '-DCMAKE_TOOLCHAIN_FILE={}'.format(
+            os.path.join( DIR_OF_THIS_SCRIPT,
+                          'toolchain_files',
+                          target + '.cmake' ) )
+      )
+    subprocess.check_call( cmake_configure_args )
 
     subprocess.check_call( [
       cmake,
@@ -181,11 +218,29 @@ def BuildLlvm( build_dir, install_dir, llvm_source_dir ):
       '--target', 'install' ] )
 
 
+def BuildTableGen( build_dir, llvm_source_dir ):
+  with WorkingDirectory( build_dir ):
+    cmake = shutil.which( 'cmake' )
+    subprocess.check_call( [
+      cmake,
+      '-DCMAKE_BUILD_TYPE=Release',
+      '-DLLVM_ENABLE_PROJECTS=clang',
+      os.path.join( llvm_source_dir, 'llvm' ) ] )
+
+    subprocess.check_call( [
+      cmake,
+      '--build', '.',
+      '--parallel',
+      subprocess.check_output( [ 'nproc' ] ).decode( 'utf-8' ).strip(),
+      '--target', 'llvm-tblgen', 'clang-tblgen' ] )
+
+
 def CheckDependencies( name, path, versions ):
   dependencies = []
   objdump = shutil.which( 'objdump' )
-  output = subprocess.check_output( [ objdump, '-p', path ],
-    stderr = subprocess.STDOUT ).decode( 'utf8' )
+  output = subprocess.check_output(
+      [ objdump, '-p', path ],
+      stderr = subprocess.STDOUT ).decode( 'utf8' )
   for line in output.splitlines():
     match = OBJDUMP_NEEDED_REGEX.search( line )
     if match:
@@ -213,17 +268,6 @@ def CheckLlvm( install_dir ):
   print( 'Minimum versions required:' )
   for library, values in versions.items():
     print( library + ' ' + str( max( values ) ) )
-
-
-def GetTarget( install_dir ):
-  output = subprocess.check_output(
-    [ os.path.join( install_dir, 'bin', 'clang' ), '-###' ],
-    stderr = subprocess.STDOUT ).decode( 'utf8' )
-  for line in output.splitlines():
-    match = TARGET_REGEX.search( line )
-    if match:
-      return match.group( 'target' )
-  sys.exit( 'Cannot deduce LLVM target.' )
 
 
 def BundleLlvm( bundle_name, archive_name, install_dir, version ):
@@ -324,7 +368,7 @@ def UploadLlvm( args, bundle_path ):
 
 def ParseArguments():
   parser = argparse.ArgumentParser()
-  parser.add_argument( 'version', type = str, help = 'LLVM version.')
+  parser.add_argument( 'version', type = str, help = 'LLVM version.' )
   parser.add_argument( '--release-candidate', type = int,
                        help = 'LLVM release candidate number.' )
 
@@ -342,6 +386,11 @@ def ParseArguments():
   parser.add_argument( '--base-dir', action='store', help='Working dir',
                        default = DIR_OF_THIS_SCRIPT )
 
+  parser.add_argument( '--target-architecture',
+                       action='store',
+                       help='For cross-compiling',
+                       default=platform.machine() )
+
   args = parser.parse_args()
 
   if not args.gh_user:
@@ -358,6 +407,7 @@ def ParseArguments():
 
   return args
 
+
 def Main():
   args = ParseArguments()
   base_dir = os.path.abspath( args.base_dir )
@@ -373,25 +423,33 @@ def Main():
     with WorkingDirectory( base_dir ):
       DownloadSource( llvm_url, llvm_source )
 
-  build_dir = os.path.join( base_dir, 'build' )
-  install_dir = os.path.join( base_dir, 'install' )
+  tblgen_build_dir = os.path.join( base_dir, 'tblgen_build' )
+  llvm_build_dir = os.path.join( base_dir, 'llvm_build' )
+  llvm_install_dir = os.path.join( base_dir, 'llvm_install' )
 
-  if not os.path.exists( build_dir ):
-    os.mkdir( build_dir )
-  if not os.path.exists( install_dir ):
-    os.mkdir( install_dir )
+  if not os.path.exists( tblgen_build_dir ):
+    os.mkdir( tblgen_build_dir )
+  if not os.path.exists( llvm_build_dir ):
+    os.mkdir( llvm_build_dir )
+  if not os.path.exists( llvm_install_dir ):
+    os.mkdir( llvm_install_dir )
 
-  BuildLlvm( build_dir, install_dir, llvm_source_dir )
-  CheckLlvm( install_dir )
+  BuildTableGen( tblgen_build_dir, llvm_source_dir )
+  BuildLlvm( llvm_build_dir,
+             llvm_install_dir,
+             llvm_source_dir,
+             tblgen_build_dir,
+             args.target_architecture )
+  CheckLlvm( llvm_install_dir )
 
-  target = GetTarget( install_dir )
+  target = ENV_DATA[ args.target_architecture ][ 'archive' ]
   bundle_version = GetBundleVersion( args )
   bundle_name = BUNDLE_NAME.format( version = bundle_version, target = target )
   archive_name = bundle_name + '.tar.xz'
   bundle_path = os.path.join( base_dir, archive_name )
   if not os.path.exists( bundle_path ):
     with WorkingDirectory( base_dir ):
-      BundleLlvm( bundle_name, archive_name, install_dir, bundle_version )
+      BundleLlvm( bundle_name, archive_name, llvm_install_dir, bundle_version )
   UploadLlvm( args, bundle_path )
 
 
