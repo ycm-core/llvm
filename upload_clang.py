@@ -271,13 +271,12 @@ def MakeBundle( files_to_copy,
   with tarfile.open( name=bundle_file_name, mode='w:bz2' ) as tar_file:
     tar_file.add( license_file_name, arcname='LICENSE.TXT' )
     for item in files_to_copy:
-      source_file_name = item.format( llvm_version = version )
-      target_file_name = source_file_name
+      file_name = item.format( llvm_version = version )
 
-      name = os.path.join( source_dir, source_file_name )
+      name = os.path.join( source_dir, file_name )
       if not os.path.exists( name ):
         raise RuntimeError( 'File {} does not exist.'.format( name ) )
-      tar_file.add( name = name, arcname = target_file_name )
+      tar_file.add( name = name, arcname = file_name )
 
   sys.stdout.write( 'Calculating checksum: ' )
   with open( bundle_file_name, 'rb' ) as f:
@@ -483,10 +482,6 @@ def BundleAndUpload( args, temp_dir, output_dir, os_name, download_data,
                 hashes,
                 args.version )
 
-    # GHA's drive space forces us to clean up as we go.
-    if not args.keep_temp:
-      shutil.rmtree( package_dir )
-
     if not args.no_upload:
       UploadBundleToGithub( args.gh_user,
                             args.gh_token,
@@ -494,6 +489,10 @@ def BundleAndUpload( args, temp_dir, output_dir, os_name, download_data,
                             os_name,
                             args.version,
                             archive_path )
+
+  # GHA's drive space forces us to clean up as we go.
+  if not args.keep_temp:
+    shutil.rmtree( package_dir )
 
 
 def Main():
