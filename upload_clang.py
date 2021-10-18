@@ -2,6 +2,7 @@
 
 import argparse
 import contextlib
+import glob
 import os
 import platform
 import requests
@@ -98,8 +99,7 @@ LLVM_DOWNLOAD_DATA = {
     'libclang_package': {
       'name': 'libclang-{llvm_version}-{os_name}.tar.bz2',
       'files_to_copy': [
-        os.path.join( 'lib', 'libclang.so' ),
-        os.path.join( 'lib', 'libclang.so.{llvm_version:.2}' )
+        os.path.join( 'lib', 'libclang.so*' ),
       ]
     }
   },
@@ -117,8 +117,7 @@ LLVM_DOWNLOAD_DATA = {
     'libclang_package': {
       'name': 'libclang-{llvm_version}-{os_name}.tar.bz2',
       'files_to_copy': [
-        os.path.join( 'lib', 'libclang.so' ),
-        os.path.join( 'lib', 'libclang.so.{llvm_version:.2}' )
+        os.path.join( 'lib', 'libclang.so*' ),
       ]
     }
   },
@@ -136,8 +135,7 @@ LLVM_DOWNLOAD_DATA = {
     'libclang_package': {
       'name': 'libclang-{llvm_version}-{os_name}.tar.bz2',
       'files_to_copy': [
-        os.path.join( 'lib', 'libclang.so' ),
-        os.path.join( 'lib', 'libclang.so.{llvm_version:.2}' )
+        os.path.join( 'lib', 'libclang.so*' ),
       ]
     }
   },
@@ -155,8 +153,7 @@ LLVM_DOWNLOAD_DATA = {
     'libclang_package': {
       'name': 'libclang-{llvm_version}-{os_name}.tar.bz2',
       'files_to_copy': [
-        os.path.join( 'lib', 'libclang.so' ),
-        os.path.join( 'lib', 'libclang.so.{llvm_version:.2}' )
+        os.path.join( 'lib', 'libclang.so*' ),
       ]
     }
   },
@@ -174,8 +171,7 @@ LLVM_DOWNLOAD_DATA = {
     'libclang_package': {
       'name': 'libclang-{llvm_version}-{os_name}.tar.bz2',
       'files_to_copy': [
-        os.path.join( 'lib', 'libclang.so' ),
-        os.path.join( 'lib', 'libclang.so.{llvm_version:.2}' )
+        os.path.join( 'lib', 'libclang.so*' ),
       ]
     }
   },
@@ -271,12 +267,12 @@ def MakeBundle( files_to_copy,
   with tarfile.open( name=bundle_file_name, mode='w:bz2' ) as tar_file:
     tar_file.add( license_file_name, arcname='LICENSE.TXT' )
     for item in files_to_copy:
-      file_name = item.format( llvm_version = version )
-
-      name = os.path.join( source_dir, file_name )
-      if not os.path.exists( name ):
-        raise RuntimeError( 'File {} does not exist.'.format( name ) )
-      tar_file.add( name = name, arcname = file_name )
+      for name in glob.glob( os.path.join( source_dir, item ) ):
+        temp, tail = os.path.split( name )
+        file_name = os.path.join( os.path.split( temp )[ 1 ], tail )
+        if not os.path.exists( name ):
+          raise RuntimeError( 'File {} does not exist.'.format( name ) )
+        tar_file.add( name = name, arcname = file_name )
 
   sys.stdout.write( 'Calculating checksum: ' )
   with open( bundle_file_name, 'rb' ) as f:
