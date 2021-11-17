@@ -1,5 +1,5 @@
-set(CMAKE_C_FLAGS_INIT "-mcpu=generic-armv7-a")
-set(CMAKE_CXX_FLAGS_INIT "-mcpu=generic-armv7-a")
+set(CMAKE_C_FLAGS_INIT "-march=armv7-a")
+set(CMAKE_CXX_FLAGS_INIT "-march=armv7-a")
 
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_SYSTEM_PROCESSOR arm)
