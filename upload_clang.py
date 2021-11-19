@@ -85,6 +85,24 @@ LLVM_DOWNLOAD_DATA = {
       ],
     }
   },
+  'arm64-apple-darwin': {
+    'url': 'https://github.com/ycm-core/llvm/'
+           'releases/download/{llvm_version}/{llvm_package}',
+    'format': 'lzma',
+    'llvm_package': 'clang+llvm-{llvm_version}-{os_name}.tar.xz',
+    'clangd_package': {
+      'name': 'clangd-{llvm_version}-{os_name}.tar.bz2',
+      'files_to_copy': [
+        os.path.join( 'bin', 'clangd' ),
+      ]
+    },
+    'libclang_package': {
+      'name': 'libclang-{llvm_version}-{os_name}.tar.bz2',
+      'files_to_copy': [
+        os.path.join( 'lib', 'libclang.dylib' ),
+      ],
+    }
+  },
   'x86_64-unknown-linux-gnu': {
     'url': ( 'https://github.com/ycm-core/llvm/'
              'releases/download/{llvm_version}/{llvm_package}' ),

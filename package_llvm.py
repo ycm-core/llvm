@@ -39,25 +39,38 @@ OBJDUMP_NEEDED_REGEX = re.compile(
 OBJDUMP_VERSION_REGEX = re.compile(
   r'^    0x[0-9a-f]+ 0x00 \d+ (?P<library>.*)_(?P<version>.*)$' )
 
-assert platform.system() == 'Linux', 'GNU/Linux only, for now'
 ENV_DATA = {
-  'x86_64': {
-    'host': 'x86_64-unknown-linux-gnu',
-    'target': 'x86_64-unknown-linux-gnu',
-    'archive': 'x86_64-unknown-linux-gnu'
+  'Linux': {
+    'x86_64': {
+      'host': 'x86_64-unknown-linux-gnu',
+      'target': 'x86_64-unknown-linux-gnu',
+      'archive': 'x86_64-unknown-linux-gnu'
+    },
+    'arm': {
+      'host': 'x86_64-unknown-linux-gnu',
+      'target': 'arm-linux-gnueabihf',
+      'archive': 'armv7a-linux-gnueabihf'
+    },
+    'aarch64': {
+      'host': 'x86_64-unknown-linux-gnu',
+      'target': 'aarch64-linux-gnu',
+      'archive': 'aarch64-linux-gnu'
+    }
   },
-  'arm': {
-    'host': 'x86_64-unknown-linux-gnu',
-    'target': 'arm-linux-gnueabihf',
-    'archive': 'armv7a-linux-gnueabihf'
-  },
-  'aarch64': {
-    'host': 'x86_64-unknown-linux-gnu',
-    'target': 'aarch64-linux-gnu',
-    'archive': 'aarch64-linux-gnu'
+  'Darwin': {
+    'x86_64': {
+      'host': 'x86_64-apple-darwin',
+      'target': 'x86_64-apple-darwin',
+      'archive': 'x86_64-apple-darwin'
+    },
+    'arm64': {
+      'host': 'x86_64-apple-darwin',
+      'target': 'arm64-apple-darwin',
+      'archive': 'arm64-apple-darwin'
+    }
   }
 }
-
+assert platform.system() in ENV_DATA
 
 @contextlib.contextmanager
 def WorkingDirectory( cwd ):
@@ -165,13 +178,21 @@ def DownloadSource( url, source ):
     Extract( archive )
 
 
+def GetLogicalCores():
+  cmd = [ 'nproc' ]
+  if platform.system() == "Darwin":
+    cmd = [ 'sysctl', '-n', 'hw.logicalcpu' ]
+
+  return subprocess.check_output( cmd ).decode( 'utf-8' ).strip()
+
+
 def BuildLlvm( build_dir,
                install_dir,
                llvm_source_dir,
                tblgen_root,
                target_architecture ):
-  host = ENV_DATA[ target_architecture ][ 'host' ]
-  target = ENV_DATA[ target_architecture ][ 'target' ]
+  host = ENV_DATA[ platform.system() ][ target_architecture ][ 'host' ]
+  target = ENV_DATA[ platform.system() ][ target_architecture ][ 'target' ]
   print( 'Host triple:', host )
   print( 'Target triple:', target )
   with WorkingDirectory( build_dir ):
@@ -202,19 +223,19 @@ def BuildLlvm( build_dir,
       os.path.join( llvm_source_dir, 'llvm' )
     ]
     if target != host: # We're cross compilinging and need a toolchain file.
-      cmake_configure_args.append(
-        '-DCMAKE_TOOLCHAIN_FILE={}'.format(
-            os.path.join( DIR_OF_THIS_SCRIPT,
-                          'toolchain_files',
-                          target + '.cmake' ) )
-      )
+      toolchain_file = os.path.join( DIR_OF_THIS_SCRIPT,
+                                     'toolchain_files',
+                                     target + '.cmake' )
+      if os.path.exists( toolchain_file ):
+        cmake_configure_args.append(
+          '-DCMAKE_TOOLCHAIN_FILE={}'.format( toolchain_file ) )
     subprocess.check_call( cmake_configure_args )
 
     subprocess.check_call( [
       cmake,
       '--build', '.',
       '--parallel',
-      subprocess.check_output( [ 'nproc' ] ).decode( 'utf-8' ).strip(),
+      GetLogicalCores(),
       '--target', 'install' ] )
 
 
@@ -231,7 +252,7 @@ def BuildTableGen( build_dir, llvm_source_dir ):
       cmake,
       '--build', '.',
       '--parallel',
-      subprocess.check_output( [ 'nproc' ] ).decode( 'utf-8' ).strip(),
+      GetLogicalCores(),
       '--target', 'llvm-tblgen', 'clang-tblgen' ] )
 
 
@@ -410,7 +431,9 @@ def ParseArguments():
 
 def Main():
   args = ParseArguments()
-  base_dir = os.path.abspath( args.base_dir )
+  base_dir = os.path.join(
+    os.path.abspath( args.base_dir ),
+    ENV_DATA[ platform.system() ][ args.target_architecture ][ 'target' ] )
   if not os.path.isdir( base_dir ):
     os.mkdir( base_dir )
 
@@ -440,9 +463,11 @@ def Main():
              llvm_source_dir,
              tblgen_build_dir,
              args.target_architecture )
-  CheckLlvm( llvm_install_dir )
 
-  target = ENV_DATA[ args.target_architecture ][ 'archive' ]
+  if platform.system() == 'Linux':
+    CheckLlvm( llvm_install_dir )
+
+  target = ENV_DATA[ platform.system() ][ args.target_architecture ][ 'archive' ]
   bundle_version = GetBundleVersion( args )
   bundle_name = BUNDLE_NAME.format( version = bundle_version, target = target )
   archive_name = bundle_name + '.tar.xz'

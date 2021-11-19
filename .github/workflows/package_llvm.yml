@@ -10,7 +10,7 @@ on:
 
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-18.04
     strategy:
       fail-fast: false
@@ -28,3 +28,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./package_llvm.py --target-architecture ${{ matrix.target }} ${{ github.event.inputs.version }}
 
+  build-macos:
+    runs-on: macos-10.15
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ arm64 ]
+    steps:
+      - uses: actions/checkout@v2
+      - name: install requirements
+        run: pip3 install -r requirements.txt
+      - name: Package
+        env:
+          GITHUB_USERNAME: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./package_llvm.py --target-architecture ${{ matrix.target }} ${{ github.event.inputs.version }}
