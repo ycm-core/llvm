@@ -220,6 +220,7 @@ def BuildLlvm( build_dir,
       '-DLLVM_ENABLE_ZLIB=OFF',
       '-DLLVM_ENABLE_LIBEDIT=OFF',
       '-DLLVM_ENABLE_LIBXML2=OFF',
+      '-DLLVM_ENABLE_ZSTD=OFF',
       os.path.join( llvm_source_dir, 'llvm' )
     ]
     if target != host: # We're cross compilinging and need a toolchain file.
