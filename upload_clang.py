@@ -210,10 +210,9 @@ def TemporaryDirectory( keep_temp ):
 
 def DownloadClangLicense( version, destination ):
   print( 'Downloading license...' )
-  request = requests.get(
-    'https://releases.llvm.org/{}.0.0/LICENSE.TXT'.format(
-      version.split( '.' )[ 0 ] ),
-    stream = True )
+  # We get the license from 14.0 as that's the last time it was published
+  request = requests.get( 'https://releases.llvm.org/14.0.0/LICENSE.TXT',
+                          stream = True )
   request.raise_for_status()
 
   file_name = os.path.join( destination, 'LICENSE.TXT' )
