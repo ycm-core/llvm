@@ -72,6 +72,7 @@ ENV_DATA = {
 }
 assert platform.system() in ENV_DATA
 
+
 @contextlib.contextmanager
 def WorkingDirectory( cwd ):
   old_cwd = os.getcwd()
@@ -468,7 +469,8 @@ def Main():
   if platform.system() == 'Linux':
     CheckLlvm( llvm_install_dir )
 
-  target = ENV_DATA[ platform.system() ][ args.target_architecture ][ 'archive' ]
+  target = ENV_DATA[ platform.system() ][ args.target_architecture ][
+    'archive' ]
   bundle_version = GetBundleVersion( args )
   bundle_name = BUNDLE_NAME.format( version = bundle_version, target = target )
   archive_name = bundle_name + '.tar.xz'
