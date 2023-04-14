@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [ arm64 ]
+        target: [ x86_64, arm64 ]
     steps:
       - uses: actions/checkout@v2
       - name: install requirements
