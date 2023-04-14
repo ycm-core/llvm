@@ -68,8 +68,8 @@ LLVM_DOWNLOAD_DATA = {
     }
   },
   'x86_64-apple-darwin': {
-    'url': 'https://github.com/llvm/llvm-project/releases/download/'
-           'llvmorg-{llvm_version}/{llvm_package}',
+    'url': 'https://github.com/ycm-core/llvm/'
+           'releases/download/{llvm_version}/{llvm_package}',
     'format': 'lzma',
     'llvm_package': 'clang+llvm-{llvm_version}-{os_name}.tar.xz',
     'clangd_package': {
