@@ -31,7 +31,7 @@ jobs:
         run: ./package_llvm.py --target-architecture ${{ matrix.target }} ${{ github.event.inputs.version }}
 
   build-macos:
-    runs-on: macos-10.15
+    runs-on: macos-11
     strategy:
       fail-fast: false
       matrix:
