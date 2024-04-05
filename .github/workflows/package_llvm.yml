@@ -30,8 +30,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./package_llvm.py --target-architecture ${{ matrix.target }} ${{ github.event.inputs.version }}
 
-  build-macos-x86:
+  build-macos:
     runs-on: macos-13
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ x86_64, arm64 ]
     steps:
       - uses: actions/checkout@v4
       - name: install requirements
@@ -40,16 +44,4 @@ jobs:
         env:
           GITHUB_USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./package_llvm.py --target-architecture x86_64 ${{ github.event.inputs.version }}
-
-  build-macos-arm64:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-      - name: install requirements
-        run: pip3 install --break-system-packages -r requirements.txt
-      - name: Package
-        env:
-          GITHUB_USERNAME: ${{ github.actor }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./package_llvm.py --target-architecture arm64 ${{ github.event.inputs.version }}
+        run: ./package_llvm.py --target-architecture ${{ matrix.target }} ${{ github.event.inputs.version }}
