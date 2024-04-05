@@ -205,7 +205,7 @@ def BuildLlvm( build_dir,
       # A release build implies LLVM_ENABLE_ASSERTIONS=OFF.
       '-DCMAKE_BUILD_TYPE=Release',
       '-DCMAKE_INSTALL_PREFIX={}'.format( install_dir ),
-      '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra',
+      '-DLLVM_ENABLE_PROJECTS=clang;clang-tools-extra;openmp',
       '-DLLVM_DEFAULT_TARGET_TRIPLE={}'.format( target ),
       '-DLLVM_TARGETS_TO_BUILD=all',
       '-DLLVM_TABLEGEN={}'.format(
