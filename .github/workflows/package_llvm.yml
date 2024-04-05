@@ -32,8 +32,6 @@ jobs:
 
   build-macos-x86:
     runs-on: macos-13
-    strategy:
-      fail-fast: false
     steps:
       - uses: actions/checkout@v4
       - name: install requirements
@@ -46,8 +44,6 @@ jobs:
 
   build-macos-arm64:
     runs-on: macos-14
-    strategy:
-      fail-fast: false
     steps:
       - uses: actions/checkout@v4
       - name: install requirements
