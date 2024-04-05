@@ -189,6 +189,10 @@ def GetLogicalCores():
   return subprocess.check_output( cmd ).decode( 'utf-8' ).strip()
 
 
+def GetGeneratorArgs():
+  return shutil.which( 'ninja' ) and [ '-G', 'Ninja' ] or []
+
+
 def GetCacheArgs( build_dir ):
   return [
       '-DLLVM_CCACHE_BUILD=ON',
@@ -213,7 +217,7 @@ def BuildLlvm( build_dir,
     # variables defined by LLVM.
     cmake_configure_args = [
       cmake,
-      '-G', 'Ninja',
+      *GetGeneratorArgs(),
       # A release build implies LLVM_ENABLE_ASSERTIONS=OFF.
       '-DCMAKE_BUILD_TYPE=Release',
       '-DCMAKE_INSTALL_PREFIX={}'.format( install_dir ),
@@ -265,7 +269,7 @@ def BuildTableGen( build_dir, llvm_source_dir ):
     cmake = shutil.which( 'cmake' )
     subprocess.check_call( [
       cmake,
-      '-G', 'Ninja',
+      *GetGeneratorArgs(),
       '-DCMAKE_BUILD_TYPE=Release',
       '-DLLVM_ENABLE_PROJECTS=clang',
       *GetCacheArgs( build_dir ),
