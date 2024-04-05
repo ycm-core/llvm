@@ -194,12 +194,12 @@ def GetGeneratorArgs():
 
 
 def GetCacheArgs( build_dir ):
-  return [
+  return shutil.which( 'ccache' ) and [
       '-DLLVM_CCACHE_BUILD=ON',
       '-DLLVM_CCACHE_MAXSIZE=5G',
       '-DLLVM_CCACHE_DIR={}'.format(
         os.path.abspath( os.path.join( build_dir, '..', 'ccache' ) ) ),
-  ]
+  ] or []
 
 
 def BuildLlvm( build_dir,
