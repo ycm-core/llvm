@@ -395,6 +395,9 @@ def ParseArguments():
   parser.add_argument( '--release-candidate', type = int,
                        help = 'LLVM release candidate number.' )
 
+  parser.add_argument( '--no-upload', action = 'store_true',
+                       help = "Don't upload the archive to GitHub." )
+
   parser.add_argument( '--gh-user', action='store',
                        help = 'GitHub user name. Defaults to environment '
                               'variable: GITHUB_USERNAME' )
@@ -416,17 +419,18 @@ def ParseArguments():
 
   args = parser.parse_args()
 
-  if not args.gh_user:
-    if 'GITHUB_USERNAME' not in os.environ:
-      sys.exit( 'ERROR: Must specify either --gh-user or '
-                'GITHUB_USERNAME in environment' )
-    args.gh_user = os.environ[ 'GITHUB_USERNAME' ]
+  if not args.no_upload:
+    if not args.gh_user:
+      if 'GITHUB_USERNAME' not in os.environ:
+        sys.exit( 'ERROR: Must specify either --gh-user or '
+                  'GITHUB_USERNAME in environment' )
+      args.gh_user = os.environ[ 'GITHUB_USERNAME' ]
 
-  if not args.gh_token:
-    if 'GITHUB_TOKEN' not in os.environ:
-      sys.exit( 'ERROR: Must specify either --gh-token or '
-                'GITHUB_TOKEN in environment' )
-    args.gh_token = os.environ[ 'GITHUB_TOKEN' ]
+    if not args.gh_token:
+      if 'GITHUB_TOKEN' not in os.environ:
+        sys.exit( 'ERROR: Must specify either --gh-token or '
+                  'GITHUB_TOKEN in environment' )
+      args.gh_token = os.environ[ 'GITHUB_TOKEN' ]
 
   return args
 
@@ -478,7 +482,9 @@ def Main():
   if not os.path.exists( bundle_path ):
     with WorkingDirectory( base_dir ):
       BundleLlvm( bundle_name, archive_name, llvm_install_dir, bundle_version )
-  UploadLlvm( args, bundle_path )
+
+  if not args.no_upload:
+    UploadLlvm( args, bundle_path )
 
 
 if __name__ == "__main__":
