@@ -202,6 +202,7 @@ def BuildLlvm( build_dir,
     # variables defined by LLVM.
     cmake_configure_args = [
       cmake,
+      '-G', 'Ninja',
       # A release build implies LLVM_ENABLE_ASSERTIONS=OFF.
       '-DCMAKE_BUILD_TYPE=Release',
       '-DCMAKE_INSTALL_PREFIX={}'.format( install_dir ),
@@ -246,6 +247,7 @@ def BuildTableGen( build_dir, llvm_source_dir ):
     cmake = shutil.which( 'cmake' )
     subprocess.check_call( [
       cmake,
+      '-G', 'Ninja',
       '-DCMAKE_BUILD_TYPE=Release',
       '-DLLVM_ENABLE_PROJECTS=clang',
       os.path.join( llvm_source_dir, 'llvm' ) ] )
