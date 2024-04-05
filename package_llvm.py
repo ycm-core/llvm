@@ -243,6 +243,13 @@ def BuildLlvm( build_dir,
       if os.path.exists( toolchain_file ):
         cmake_configure_args.append(
           '-DCMAKE_TOOLCHAIN_FILE={}'.format( toolchain_file ) )
+      else:
+        print( "WARNING: Cross compiling, but no toolchain file found for " +
+               toolchain_file )
+        sys.exit( 1 )
+
+    print( 'CMake Args: {}'.format( ' '.join( cmake_configure_args ) ) )
+
     subprocess.check_call( cmake_configure_args )
 
     subprocess.check_call( [
