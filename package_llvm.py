@@ -59,12 +59,14 @@ ENV_DATA = {
   },
   'Darwin': {
     'x86_64': {
-      'host': 'x86_64-apple-darwin',
+      'host': 'x86_64-apple-darwin'
+        if platform.processor() != 'arm' else 'arm64-apple-darwin',
       'target': 'x86_64-apple-darwin',
       'archive': 'x86_64-apple-darwin'
     },
     'arm64': {
-      'host': 'x86_64-apple-darwin',
+      'host': 'x86_64-apple-darwin'
+        if platform.processor() != 'arm' else 'arm64-apple-darwin',
       'target': 'arm64-apple-darwin',
       'archive': 'arm64-apple-darwin'
     }
