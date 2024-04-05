@@ -187,6 +187,15 @@ def GetLogicalCores():
   return subprocess.check_output( cmd ).decode( 'utf-8' ).strip()
 
 
+def GetCacheArgs( build_dir ):
+  return [
+      '-DLLVM_CCACHE_BUILD=ON',
+      '-DLLVM_CCACHE_MAXSIZE=5G',
+      '-DLLVM_CCACHE_DIR={}'.format(
+        os.path.abspath( os.path.join( build_dir, '..', 'ccache' ) ) ),
+  ]
+
+
 def BuildLlvm( build_dir,
                install_dir,
                llvm_source_dir,
@@ -222,6 +231,7 @@ def BuildLlvm( build_dir,
       '-DLLVM_ENABLE_LIBEDIT=OFF',
       '-DLLVM_ENABLE_LIBXML2=OFF',
       '-DLLVM_ENABLE_ZSTD=OFF',
+      *GetCacheArgs( build_dir ),
       os.path.join( llvm_source_dir, 'llvm' )
     ]
     if target != host: # We're cross compilinging and need a toolchain file.
@@ -249,6 +259,7 @@ def BuildTableGen( build_dir, llvm_source_dir ):
       '-G', 'Ninja',
       '-DCMAKE_BUILD_TYPE=Release',
       '-DLLVM_ENABLE_PROJECTS=clang',
+      *GetCacheArgs( build_dir ),
       os.path.join( llvm_source_dir, 'llvm' ) ] )
 
     subprocess.check_call( [
