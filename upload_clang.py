@@ -67,6 +67,25 @@ LLVM_DOWNLOAD_DATA = {
       ]
     }
   },
+  'woa64': {
+    'url': 'https://github.com/llvm/llvm-project/releases/download/'
+           'llvmorg-{llvm_version}/{llvm_package}',
+    'format': 'nsis',
+    'llvm_package': 'LLVM-{llvm_version}-{os_name}.exe',
+    'clangd_package': {
+      'name': 'clangd-{llvm_version}-{os_name}.tar.bz2',
+      'files_to_copy': [
+        os.path.join( 'bin', 'clangd.exe' ),
+      ]
+    },
+    'libclang_package': {
+      'name': 'libclang-{llvm_version}-{os_name}.tar.bz2',
+      'files_to_copy': [
+        os.path.join( 'bin', 'libclang.dll' ),
+        os.path.join( 'lib', 'libclang.lib' ),
+      ]
+    }
+  },
   'x86_64-apple-darwin': {
     'url': 'https://github.com/ycm-core/llvm/'
            'releases/download/{llvm_version}/{llvm_package}',
