@@ -377,9 +377,10 @@ def ParseArguments():
                        help = 'GitHub api token. Defaults to environment '
                               'variable: GITHUB_TOKEN.' )
   parser.add_argument( '--gh-org', action='store',
-                       default = 'ycm-core',
                        help = 'GitHub organization to which '
-                              'the archive will be uploaded to. ' )
+                              'the archive will be uploaded to. Defaults '
+                              'to environement variable: '
+                              'GITHUB_REPOSITORY_OWNER' )
   parser.add_argument( '--from-cache', action='store',
                        help = 'Use the clang packages from this dir. Useful '
                               'if releases.llvm.org is unreliable.' )
@@ -402,6 +403,13 @@ def ParseArguments():
       sys.exit( 'ERROR: Must specify either --gh-user or '
                 'GITHUB_USERNAME in environment' )
     args.gh_user = os.environ[ 'GITHUB_USERNAME' ]
+
+  if not args.gh_org:
+    if 'GITHUB_REPOSITORY_OWNER' not in os.environ:
+      sys.exit( 'ERROR: Must specify either --gh-org or '
+                'GITHUB_REPOSITORY_OWNER in environment' )
+    args.gh_org = os.environ[ 'GITHUB_REPOSITORY_OWNER' ]
+
 
   if not args.gh_token:
     if 'GITHUB_TOKEN' not in os.environ:
