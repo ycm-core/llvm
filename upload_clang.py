@@ -353,13 +353,17 @@ def UploadBundleToGithub( user_name,
       request.raise_for_status()
 
   print( 'Uploading to github...' )
+  file_size = os.path.getsize( bundle_file_name )
   with open( bundle_file_name, 'rb' ) as bundle:
     request = requests.put(
       upload_url,
       data = bundle,
       params = { 'name': os.path.split( bundle_file_name )[ 1 ] },
       auth = ( user_name, api_token ),
-      headers = { 'Content-Type': 'application/x-xz' },
+      headers = {
+        'Content-Type': 'application/x-xz',
+        'Content-Length': str( file_size ),
+      },
     )
     request.raise_for_status()
 
