@@ -325,47 +325,23 @@ def UploadBundleToGithub( user_name,
                           os_name,
                           version,
                           bundle_file_name ):
-  response = requests.get(
-    'https://api.github.com/repos/{}/llvm/releases'.format( org ) )
-  if response.status_code != 200:
-    message = response.json()[ 'message' ]
-    sys.exit( 'Getting releases failed with message: {}'.format( message ) )
-
-  upload_url = None
-  assets_url = None
-  for release in response.json():
-    if release[ 'tag_name' ] != version:
-      continue
-    upload_url = release[ 'upload_url' ].replace( '{?name,label}', '' )
-    assets_url = release[ 'assets_url' ]
-
-  if upload_url is None:
-    sys.exit( 'Release {} not published yet.'.format( version ) )
-
-  for asset in requests.get( assets_url ).json():
-    if asset[ 'name' ] == os.path.split( bundle_file_name )[ 1 ]:
-      print( 'Removing an archive of the same name that already exists '
-             'for the specified release.' )
-      request = requests.delete(
-        asset[ 'url' ],
-        auth = ( user_name, api_token ),
-        headers = { 'Accept': 'application/vnd.github.v3+json' } )
-      request.raise_for_status()
+  # Uploading large assets via raw `requests.put` to uploads.github.com is
+  # prone to SSLEOFError on GitHub-hosted runners (stale TLS/urllib3
+  # combination mishandling the streamed body). The `gh` CLI, preinstalled
+  # on GitHub-hosted runners, uploads assets far more reliably and supports
+  # overwriting an existing asset of the same name via --clobber.
+  repo = '{}/llvm'.format( org )
+  env = os.environ.copy()
+  env[ 'GH_TOKEN' ] = api_token
 
   print( 'Uploading to github...' )
-  file_size = os.path.getsize( bundle_file_name )
-  with open( bundle_file_name, 'rb' ) as bundle:
-    request = requests.put(
-      upload_url,
-      data = bundle,
-      params = { 'name': os.path.split( bundle_file_name )[ 1 ] },
-      auth = ( user_name, api_token ),
-      headers = {
-        'Content-Type': 'application/x-xz',
-        'Content-Length': str( file_size ),
-      },
-    )
-    request.raise_for_status()
+  try:
+    subprocess.run(
+      [ 'gh', 'release', 'upload', version, bundle_file_name,
+        '--repo', repo, '--clobber' ],
+      env = env, check = True )
+  except subprocess.CalledProcessError as e:
+    sys.exit( 'Uploading to github failed: {}'.format( e ) )
 
 
 def ParseArguments():
