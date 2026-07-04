@@ -26,7 +26,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install g++-arm-linux-gnueabihf gcc-arm-linux-gnueabihf g++-aarch64-linux-gnu gcc-aarch64-linux-gnu
       - name: Package
         env:
-          GITHUB_USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./package_llvm.py --target-architecture ${{ matrix.target }} ${{ github.event.inputs.version }}
 
@@ -42,6 +41,5 @@ jobs:
         run: pip3  install --break-system-packages -r requirements.txt
       - name: Package
         env:
-          GITHUB_USERNAME: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./package_llvm.py --target-architecture ${{ matrix.target }} ${{ github.event.inputs.version }}

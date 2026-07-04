@@ -26,11 +26,6 @@ LLVM_PRERELEASE_URL = (
   'download/llvmorg-{version}-rc{release_candidate}' )
 LLVM_SOURCE = 'llvm-project-{version}.src'
 BUNDLE_NAME = 'clang+llvm-{version}-{target}'
-GITHUB_BASE_URL = 'https://api.github.com/'
-GITHUB_RELEASES_URL = (
-  GITHUB_BASE_URL + 'repos/{owner}/{repo}/releases' )
-GITHUB_ASSETS_URL = (
-  GITHUB_BASE_URL + 'repos/{owner}/{repo}/releases/assets/{asset_id}' )
 RETRY_INTERVAL = 10
 SHARED_LIBRARY_REGEX = re.compile( r'.*\.so(.\d+)*$' )
 
@@ -337,81 +332,60 @@ def BundleLlvm( bundle_name, archive_name, install_dir, version ):
 
 
 def UploadLlvm( args, bundle_path ):
-  response = requests.get(
-    GITHUB_RELEASES_URL.format( owner = args.gh_org, repo = 'llvm' ),
-    auth = ( args.gh_user, args.gh_token )
-  )
-  if response.status_code != 200:
-    message = response.json()[ 'message' ]
-    sys.exit( 'Getting releases failed with message: {}'.format( message ) )
-
+  # Uploading large assets via raw requests to the GitHub API is prone to
+  # obscure failures (e.g. "Validation Failed") when multiple parallel matrix
+  # jobs race to create the same release, or due to TLS/connection issues with
+  # large streamed uploads. The `gh` CLI, preinstalled on GitHub-hosted
+  # runners, handles both problems: `gh release create` is idempotent (we
+  # tolerate it failing when another job already created the release) and
+  # `gh release upload --clobber` replaces an existing asset atomically.
   bundle_version = GetBundleVersion( args )
   bundle_name = os.path.basename( bundle_path )
+  repo = '{}/llvm'.format( args.gh_org )
+  env = os.environ.copy()
+  env[ 'GH_TOKEN' ] = args.gh_token
 
-  upload_url = None
-  for release in response.json():
-    if release[ 'tag_name' ] != bundle_version:
-      continue
+  prerelease = args.release_candidate is not None
+  name = 'LLVM and Clang ' + args.version
+  if args.release_candidate:
+    name += ' RC' + str( args.release_candidate )
+  notes = name + ' without realtime, terminfo, and zlib dependencies.'
 
-    print( 'Version {} already released.'.format( bundle_version ) )
-    upload_url = release[ 'upload_url' ]
+  # Multiple parallel jobs race to create the same release. Tolerate failure
+  # here; we verify the release exists before uploading.
+  print( 'Releasing {} on GitHub.'.format( bundle_version ) )
+  create_cmd = [
+    'gh', 'release', 'create', bundle_version,
+    '--repo', repo,
+    '--title', name,
+    '--notes', notes,
+  ]
+  if prerelease:
+    create_cmd.append( '--prerelease' )
 
-    for asset in release[ 'assets' ]:
-      if asset[ 'name' ] != bundle_name:
-        continue
-
-      print( 'Deleting {} on GitHub.'.format( bundle_name ) )
-      response = requests.delete(
-        GITHUB_ASSETS_URL.format( owner = args.gh_org,
-                                  repo = 'llvm',
-                                  asset_id = asset[ 'id' ] ),
-        json = { 'tag_name': bundle_version },
-        auth = ( args.gh_user, args.gh_token )
-      )
-
-      if response.status_code != 204:
-        message = response.json()[ 'message' ]
-        sys.exit( 'Deleting release failed with message: {}'.format( message ) )
-
-      break
-
-  if not upload_url:
-    print( 'Releasing {} on GitHub.'.format( bundle_version ) )
-    prerelease = args.release_candidate is not None
-    name = 'LLVM and Clang ' + args.version
-    if args.release_candidate:
-      name += ' RC' + str( args.release_candidate )
-    response = requests.post(
-      GITHUB_RELEASES_URL.format( owner = args.gh_org, repo = 'llvm' ),
-      json = {
-        'tag_name': bundle_version,
-        'name': name,
-        'body': name + ' without realtime, terminfo, and zlib dependencies.',
-        'prerelease': prerelease
-      },
-      auth = ( args.gh_user, args.gh_token )
+  result = subprocess.run( create_cmd, env = env )
+  if result.returncode != 0:
+    check = subprocess.run(
+      [ 'gh', 'release', 'view', bundle_version, '--repo', repo ],
+      env = env,
+      stdout = subprocess.DEVNULL,
+      stderr = subprocess.DEVNULL,
     )
-    if response.status_code != 201:
-      message = response.json()[ 'message' ]
-      sys.exit( 'Releasing failed with message: {}'.format( message ) )
+    if check.returncode != 0:
+      sys.exit( 'Failed to create or find release {}.'.format(
+        bundle_version ) )
+    print( 'Release {} already exists.'.format( bundle_version ) )
 
-    upload_url = response.json()[ 'upload_url' ]
-
-  upload_url = upload_url.replace( '{?name,label}', '' )
-
-  with open( bundle_path, 'rb' ) as bundle:
-    print( 'Uploading {} on GitHub.'.format( bundle_name ) )
-    response = requests.post(
-      upload_url,
-      params = { 'name': bundle_name },
-      headers = { 'Content-Type': 'application/x-xz' },
-      data = bundle,
-      auth = ( args.gh_user, args.gh_token )
+  print( 'Uploading {} on GitHub.'.format( bundle_name ) )
+  try:
+    subprocess.run(
+      [ 'gh', 'release', 'upload', bundle_version, bundle_path,
+        '--repo', repo, '--clobber' ],
+      env = env,
+      check = True,
     )
-
-  if response.status_code != 201:
-    message = response.json()[ 'message' ]
-    sys.exit( 'Uploading failed with message: {}'.format( message ) )
+  except subprocess.CalledProcessError as e:
+    sys.exit( 'Uploading failed: {}'.format( e ) )
 
 
 def ParseArguments():
@@ -423,9 +397,6 @@ def ParseArguments():
   parser.add_argument( '--no-upload', action = 'store_true',
                        help = "Don't upload the archive to GitHub." )
 
-  parser.add_argument( '--gh-user', action='store',
-                       help = 'GitHub user name. Defaults to environment '
-                              'variable: GITHUB_USERNAME' )
   parser.add_argument( '--gh-token', action='store',
                        help = 'GitHub api token. Defaults to environment '
                               'variable: GITHUB_TOKEN.' )
@@ -445,12 +416,6 @@ def ParseArguments():
   args = parser.parse_args()
 
   if not args.no_upload:
-    if not args.gh_user:
-      if 'GITHUB_USERNAME' not in os.environ:
-        sys.exit( 'ERROR: Must specify either --gh-user or '
-                  'GITHUB_USERNAME in environment' )
-      args.gh_user = os.environ[ 'GITHUB_USERNAME' ]
-
     if not args.gh_token:
       if 'GITHUB_TOKEN' not in os.environ:
         sys.exit( 'ERROR: Must specify either --gh-token or '
